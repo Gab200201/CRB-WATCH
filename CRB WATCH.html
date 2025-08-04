@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRB Watch</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Leaflet CSS for the map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <!-- Custom Styles -->
+    <style>
+        /* Use a nice font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Hide pages by default */
+        .page {
+            display: none;
+        }
+        /* Show the active page */
+        .page.active {
+            display: block;
+        }
+        /* Simple fade-in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .active {
+            animation: fadeIn 0.5s;
+        }
+        /* Custom modal styles */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 90%;
+            width: 400px;
+        }
+    </style>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-[#f9f6f1] text-[#414143]">
+
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-[#f9f6f1] shadow-lg sticky top-0 z-50">
+            <div class="container mx-auto p-4 flex justify-between items-center">
+                <div class="text-2xl font-bold text-[#65855d] flex items-center">
+                    <!-- TreePalmIcon SVG -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M12 12v6"/><path d="M12 18h.01"/><path d="M15 6v1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2V6Z"/><path d="M9 6v1a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-1a2 2 0 0 1-2-2V6Z"/></svg>
+                    CRB Watch
+                </div>
+                <nav class="hidden md:flex space-x-6" id="desktop-nav">
+                    <a href="#home" class="nav-link flex items-center font-medium text-[#414143] transition-colors duration-300 hover:text-[#65855d]">Home</a>
+                    <a href="#report" class="nav-link flex items-center font-medium text-[#414143] transition-colors duration-300 hover:text-[#65855d]">Report</a>
+                    <a href="#learn" class="nav-link flex items-center font-medium text-[#414143] transition-colors duration-300 hover:text-[#65855d]">The Plan</a>
+                    <a href="#mission" class="nav-link flex items-center font-medium text-[#414143] transition-colors duration-300 hover:text-[#65855d]">Mission</a>
+                    <a href="#contact" class="nav-link flex items-center font-medium text-[#414143] transition-colors duration-300 hover:text-[#65855d]">Contact</a>
+                </nav>
+                <button id="mobile-menu-button" class="md:hidden text-[#414143] hover:text-[#65855d] focus:outline-none transition-transform duration-300">
+                    <!-- MenuIcon SVG -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="menu-icon-open"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+                    <!-- XIcon SVG -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="menu-icon-close" class="hidden"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Mobile navigation drawer -->
+        <div id="mobile-nav" class="fixed inset-y-0 left-0 w-64 bg-[#f9f6f1] z-40 transform -translate-x-full transition-transform duration-300 ease-in-out md:hidden">
+            <div class="p-6 pt-16">
+                <h2 class="text-2xl font-bold text-[#65855d] mb-6">Menu</h2>
+                <nav class="flex flex-col space-y-4 text-[#414143] font-medium">
+                    <a href="#home" class="nav-link flex items-center p-3 rounded-lg hover:bg-gray-100 transition-colors duration-300">Home</a>
+                    <a href="#report" class="nav-link flex items-center p-3 rounded-lg hover:bg-gray-100 transition-colors duration-300">Report</a>
+                    <a href="#learn" class="nav-link flex items-center p-3 rounded-lg hover:bg-gray-100 transition-colors duration-300">The Plan</a>
+                    <a href="#mission" class="nav-link flex items-center p-3 rounded-lg hover:bg-gray-100 transition-colors duration-300">Mission</a>
+                    <a href="#contact" class="nav-link flex items-center p-3 rounded-lg hover:bg-gray-100 transition-colors duration-300">Contact</a>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Main content area -->
+        <main class="flex-grow container mx-auto p-4 md:p-8">
+            
+            <!-- Home Page -->
+            <div id="home" class="page">
+                <section class="text-center py-12 md:py-20">
+                    <div class="bg-[#f9f6f1] rounded-3xl shadow-xl p-8 md:p-12 mb-12">
+                        <h1 class="text-4xl md:text-6xl font-extrabold text-[#414143] mb-4">Eradicating the Coconut Rhinoceros Beetle</h1>
+                        <p class="text-lg md:text-xl text-[#414143] max-w-3xl mx-auto mb-8">Join our comprehensive 10-year eco strategy to protect global food security and Hawaii's unique ecosystem.</p>
+                        <button id="report-sighting-btn" class="bg-[#65855d] text-[#f9f6f1] font-bold w-48 h-48 rounded-full shadow-lg hover:bg-[#526a4b] transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-[#65855d] focus:ring-opacity-50 flex items-center justify-center text-center mx-auto">Report a Sighting Today</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Metric Cards -->
+                        <div class="bg-[#f9f6f1] rounded-2xl shadow-md p-6 flex flex-col items-center justify-center text-center transition-transform duration-300 hover:scale-105">
+                            <div class="p-4 bg-gray-100 rounded-full text-[#65855d] mb-4"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12v6"/><path d="M12 18h.01"/><path d="M15 6v1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2V6Z"/><path d="M9 6v1a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-1a2 2 0 0 1-2-2V6Z"/></svg></div>
+                            <h3 class="text-lg font-medium text-gray-500">Trees Saved (5 yr)</h3><p class="text-3xl font-extrabold text-[#414143] mt-1">100,000,000+</p>
+                        </div>
+                        <div class="bg-[#f9f6f1] rounded-2xl shadow-md p-6 flex flex-col items-center justify-center text-center transition-transform duration-300 hover:scale-105">
+                            <div class="p-4 bg-gray-100 rounded-full text-[#65855d] mb-4"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 12v0a2 2 0 0 1-2 2v0a2 2 0 0 1-2-2v0a2 2 0 0 1 2-2v0a2 2 0 0 1 2 2Z"/><path d="M18 12v0a6 6 0 0 1-6 6v0a6 6 0 0 1-6-6v0a6 6 0 0 1 6-6v0a6 6 0 0 1 6 6Z"/><path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></div>
+                            <h3 class="text-lg font-medium text-gray-500">Infestation Reduction</h3><p class="text-3xl font-extrabold text-[#414143] mt-1">80%</p>
+                        </div>
+                        <div class="bg-[#f9f6f1] rounded-2xl shadow-md p-6 flex flex-col items-center justify-center text-center transition-transform duration-300 hover:scale-105">
+                            <div class="p-4 bg-gray-100 rounded-full text-[#65855d] mb-4"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg></div>
+                            <h3 class="text-lg font-medium text-gray-500">Countries with Teams</h3><p class="text-3xl font-extrabold text-[#414143] mt-1">25</p>
+                        </div>
+                        <div class="bg-[#f9f6f1] rounded-2xl shadow-md p-6 flex flex-col items-center justify-center text-center transition-transform duration-300 hover:scale-105">
+                            <div class="p-4 bg-gray-100 rounded-full text-[#65855d] mb-4"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div>
+                            <h3 class="text-lg font-medium text-gray-500">Jobs Created</h3><p class="text-3xl font-extrabold text-[#414143] mt-1">30,000,000+</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Report Page -->
+            <div id="report" class="page">
+                <section class="p-6 md:p-12 bg-[#f9f6f1] rounded-3xl shadow-xl">
+                    <h2 class="text-3xl md:text-4xl font-extrabold text-[#414143] text-center mb-6">Report a CRB Sighting</h2>
+                    <p class="text-center text-[#414143] max-w-2xl mx-auto mb-8">Click on the map to mark the location of your sighting, then fill out the details below.</p>
+                    <div id="map-container" class="bg-[#e9e7e2] rounded-xl w-full h-96 mb-8 shadow-md z-10"></div>
+                    <form id="report-form" class="max-w-xl mx-auto space-y-6">
+                        <div>
+                            <label for="location" class="block text-sm font-medium text-[#414143]">Location (Latitude, Longitude)</label>
+                            <input type="text" id="location-input" name="location" placeholder="Click on the map or enter coordinates manually" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3 focus:border-[#65855d] focus:ring-[#65855d] bg-white text-[#414143]" required />
+                        </div>
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-[#414143]">Description</label>
+                            <textarea id="description-input" name="description" rows="4" placeholder="Describe what you saw and any damage." class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-3 focus:border-[#65855d] focus:ring-[#65855d] bg-white text-[#414143]" required></textarea>
+                        </div>
+                        <div>
+                            <label for="image" class="block text-sm font-medium text-[#414143]">Upload Image (optional)</label>
+                            <input type="file" id="image-input" name="image" accept="image/*" class="mt-1 block w-full text-sm text-[#414143] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#e6f0e4] file:text-[#65855d] hover:file:bg-gray-200" />
+                        </div>
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-[#f9f6f1] bg-[#65855d] hover:bg-[#526a4b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#65855d] transition duration-300">Submit Report</button>
+                    </form>
+                </section>
+            </div>
+
+            <!-- Learn Page -->
+            <div id="learn" class="page">
+                <section class="p-6 md:p-12 bg-[#f9f6f1] rounded-3xl shadow-xl">
+                    <h2 class="text-3xl md:text-4xl font-extrabold text-[#414143] text-center mb-6">Our Battle Plan</h2>
+                    <p class="text-center text-[#414143] max-w-3xl mx-auto mb-10">Our multi-faceted approach combines science, community, and innovation to stop the spread of the Coconut Rhinoceros Beetle.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Battle Plan Steps -->
+                        <div class="flex items-start bg-gray-50 p-6 rounded-2xl shadow-md">
+                            <div class="p-3 bg-[#f9f6f1] rounded-full shadow-inner flex-shrink-0 mr-4"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></div>
+                            <div><h3 class="text-xl font-bold text-[#414143] mb-2">Surveillance & Mapping</h3><p class="text-[#414143]">Using community reports, drones, and GIS to map infestations and target hotspots for efficient management.</p></div>
+                        </div>
+                        <div class="flex items-start bg-gray-50 p-6 rounded-2xl shadow-md">
+                            <div class="p-3 bg-[#f9f6f1] rounded-full shadow-inner flex-shrink-0 mr-4"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5s-3 3.5-3 5.5a7 7 0 0 0 7 7z"/></svg></div>
+                            <div><h3 class="text-xl font-bold text-[#414143] mb-2">Natural & Physical Control</h3><p class="text-[#414143]">Applying eco-friendly methods like hot water, salt water, and special non-toxic mixtures to disrupt the beetle exoskeleton and kill larvae.</p></div>
+                        </div>
+                        <div class="flex items-start bg-gray-50 p-6 rounded-2xl shadow-md">
+                            <div class="p-3 bg-[#f9f6f1] rounded-full shadow-inner flex-shrink-0 mr-4"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 19 9 19 7c0-2.2-1.8-4-4-4S9 3 9 5c0 2 1.3 3.2 2.5 4.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg></div>
+                            <div><h3 class="text-xl font-bold text-[#414143] mb-2">Trapping & Lures</h3><p class="text-[#414143]">Implementing solar-powered UV light traps, mating sound replication, and netting over compost piles to disrupt breeding cycles.</p></div>
+                        </div>
+                        <div class="flex items-start bg-gray-50 p-6 rounded-2xl shadow-md">
+                            <div class="p-3 bg-[#f9f6f1] rounded-full shadow-inner flex-shrink-0 mr-4"><svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+                            <div><h3 class="text-xl font-bold text-[#414143] mb-2">Community Involvement</h3><p class="text-[#414143]">Mobilizing society through public education, bounty programs, and engaging local farmers and schools to create a collaborative effort.</p></div>
+                        </div>
+                    </div>
+
+                    <!-- NEW SECTION: Plant Threats -->
+                    <div class="mt-16">
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-[#414143] text-center mb-6">The Threat to Our Plants</h2>
+                        <p class="text-center text-[#414143] max-w-3xl mx-auto mb-10">The Coconut Rhinoceros Beetle is a major pest that damages a wide range of economically and culturally significant plants beyond just palms.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            
+                            <!-- Coconut Card -->
+                            <div class="bg-gray-50 p-6 rounded-2xl shadow-md flex flex-col">
+                                <img src="https://images.unsplash.com/photo-1598556149539-86456986a3b0?q=80&w=2070&auto=format&fit=crop" alt="V-shaped cuts on coconut palm fronds caused by CRB" class="rounded-lg mb-4 w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/3c5242/ffffff?text=V-shaped+cuts+in+fronds';">
+                                <h3 class="text-xl font-bold text-[#414143] mb-2">Coconut Palms</h3>
+                                <p class="text-[#414143] flex-grow">This is the primary target. Adult beetles bore into the crown of the palm to feed on sap. This boring action cuts through the developing, folded fronds. When these fronds grow out and unfold, the damage appears as characteristic **V-shaped cuts**. According to studies by the University of Hawaii, severe infestations reduce coconut production and can kill the tree by damaging its single growing point (meristem).</p>
+                            </div>
+
+                            <!-- Sugarcane Card -->
+                            <div class="bg-gray-50 p-6 rounded-2xl shadow-md flex flex-col">
+                                <img src="https://images.unsplash.com/photo-1621841199393-54784d61730f?q=80&w=1974&auto=format&fit=crop" alt="Bore holes in a sugarcane stalk" class="rounded-lg mb-4 w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/a58e74/ffffff?text=Holes+in+sugarcane+stalk';">
+                                <h3 class="text-xl font-bold text-[#414143] mb-2">Sugarcane</h3>
+                                <p class="text-[#414143] flex-grow">While a secondary host, the CRB still poses a threat. Adult beetles bore into the soft, upper sections of the sugarcane stalk to feed. This damage creates entry points for fungal and bacterial diseases, such as red rot, which can devastate the crop. The boring weakens the stalk, making it prone to breaking and reducing the overall sugar yield.</p>
+                            </div>
+
+                            <!-- Breadfruit Card -->
+                            <div class="bg-gray-50 p-6 rounded-2xl shadow-md flex flex-col">
+                                <img src="https://images.unsplash.com/photo-1609355938599-1a852b7e2524?q=80&w=2070&auto=format&fit=crop" alt="Damaged breadfruit and stems" class="rounded-lg mb-4 w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/6a822f/ffffff?text=Damaged+breadfruit';">
+                                <h3 class="text-xl font-bold text-[#414143] mb-2">Breadfruit ('Ulu)</h3>
+                                <p class="text-[#414143] flex-grow">The beetle's impact on breadfruit is significant as its larvae can thrive in rotting breadfruit and other composted materials, turning cultural practices like using earth ovens into potential breeding grounds. Adults may bore into the soft stems and developing fruit, causing damage that reduces yield and makes the fruit unmarketable.</p>
+                            </div>
+
+                            <!-- Taro (Kalo) Card -->
+                            <div class="bg-gray-50 p-6 rounded-2xl shadow-md flex flex-col">
+                                <img src="https://images.unsplash.com/photo-1604313319888-d5f7a7754d45?q=80&w=1964&auto=format&fit=crop" alt="Tunnels bored into a taro corm" class="rounded-lg mb-4 w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/7d6b91/ffffff?text=Tunnels+in+taro+corm';">
+                                <h3 class="text-xl font-bold text-[#414143] mb-2">Taro (Kalo)</h3>
+                                <p class="text-[#414143] flex-grow">CRB is often mistaken for the similar-looking Taro Beetle, but both can be devastating. Adult rhinoceros beetles can bore into the corm (the underground tuber) of the taro plant. This feeding creates tunnels that ruin the corm for consumption and introduce rot. For a crop so vital to Pacific culture and food security, this damage is a major threat.</p>
+                            </div>
+
+                            <!-- Banana Card -->
+                            <div class="bg-gray-50 p-6 rounded-2xl shadow-md flex flex-col">
+                                <img src="https://images.unsplash.com/photo-1542486022-b2fa96349909?q=80&w=1974&auto=format&fit=crop" alt="A weakened and damaged banana plant stem" class="rounded-lg mb-4 w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/600x400/e0c870/ffffff?text=Damaged+banana+plant';">
+                                <h3 class="text-xl font-bold text-[#414143] mb-2">Bananas</h3>
+                                <p class="text-[#414143] flex-grow">The beetle attacks banana plants by boring into the pseudostem (the main stalk). This weakens the plant's structure, making it susceptible to toppling over, especially when bearing a heavy bunch of fruit. As documented in recent news reports from Hawaii, this damage can lead to significant crop loss for local farmers who depend on banana production.</p>
+                            </div>
+
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Mission Page -->
+            <div id="mission" class="page">
+                <section class="p-6 md:p-12 bg-[#f9f6f1] rounded-3xl shadow-xl">
+                    <h2 class="text-3xl md:text-4xl font-extrabold text-[#414143] text-center mb-6">Our Mission & Vision</h2>
+                    <div class="flex flex-col md:flex-row gap-8">
+                        <div class="md:w-1/2 p-6 bg-gray-50 rounded-2xl shadow-md"><h3 class="text-2xl font-bold text-[#65855d] mb-4">Our Mission</h3><p class="text-[#414143] leading-relaxed">Our mission is to stop the spread of the coconut rhinoceros beetle, use non-toxic, physical, and natural methods for control, and mobilize communities and build infrastructure to support these efforts.</p></div>
+                        <div class="md:w-1/2 p-6 bg-gray-50 rounded-2xl shadow-md"><h3 class="text-2xl font-bold text-[#65855d] mb-4">Our Vision</h3><p class="text-[#414143] leading-relaxed">Our vision is to create a future where accessible, non-toxic solutions protect our communities and ecosystems, ensuring that united action today safeguards a prosperous and sustainable tomorrow.</p></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Contact Page -->
+            <div id="contact" class="page">
+                <section class="p-6 md:p-12 bg-[#f9f6f1] rounded-3xl shadow-xl">
+                    <h2 class="text-3xl md:text-4xl font-extrabold text-[#414143] text-center mb-6">Get In Touch</h2>
+                    <p class="text-center text-[#414143] max-w-2xl mx-auto mb-8">We're committed to a collaborative effort. Reach out to us for more information on how you can get involved.</p>
+                    <div class="max-w-md mx-auto space-y-4 text-center">
+                        <div class="flex items-center justify-center p-4 bg-gray-50 rounded-xl shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-[#65855d] mr-4"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            <div><p class="font-bold text-lg">Invasive Pest Species Center (IPSC)</p><p class="text-[#414143]">41-745 Mooiki St., Waimanalo, HI 96795</p></div>
+                        </div>
+                        <div class="flex items-center justify-center p-4 bg-gray-50 rounded-xl shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-[#65855d] mr-4"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+                            <div><p class="font-bold text-lg">General Inquiries</p><p class="text-[#414143]">(808) 778-3479</p></div>
+                        </div>
+                        <a href="#" class="inline-block w-full text-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-[#f9f6f1] bg-[#65855d] hover:bg-[#526a4b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#65855d] transition duration-300">Follow us on Social Media</a>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-[#414143] text-[#f9f6f1] p-6 mt-auto">
+            <div class="container mx-auto text-center text-sm">
+                <p>&copy; 2025 Global CRB Social Impact Fund. All rights reserved.</p>
+                <p class="mt-2 text-gray-400">Prepared by Kevin Andrews, Invasive Pest Species Center</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Custom Modal for Notifications -->
+    <div id="notification-modal" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <p id="modal-message" class="text-lg text-gray-800 mb-6"></p>
+            <button id="modal-close-btn" class="bg-[#65855d] text-white font-bold py-2 px-6 rounded-full hover:bg-[#526a4b] transition-colors">Close</button>
+        </div>
+    </div>
+
+
+    <!-- Leaflet JS for the map -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <!-- Application Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const pages = document.querySelectorAll('.page');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileNav = document.getElementById('mobile-nav');
+            const menuIconOpen = document.getElementById('menu-icon-open');
+            const menuIconClose = document.getElementById('menu-icon-close');
+            const reportSightingBtn = document.getElementById('report-sighting-btn');
+            
+            const reportForm = document.getElementById('report-form');
+            const locationInput = document.getElementById('location-input');
+            const modal = document.getElementById('notification-modal');
+            const modalMessage = document.getElementById('modal-message');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+
+            let map = null;
+
+            const mockSightings = [
+                { id: 1, lat: 21.282778, lng: -157.829444, description: 'Sighting near Diamond Head' },
+                { id: 2, lat: 21.306944, lng: -157.858333, description: 'Sighting near Ala Moana Beach' },
+                { id: 3, lat: 21.4389, lng: -158.0001, description: 'Sighting in Pearl City' },
+            ];
+
+            // --- Page Navigation ---
+            function showPage(pageId) {
+                // Hide all pages
+                pages.forEach(page => page.classList.remove('active'));
+                
+                // Show the target page
+                const targetPage = document.getElementById(pageId);
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                }
+
+                // Update active link style
+                navLinks.forEach(link => {
+                    if (link.hash === `#${pageId}`) {
+                        link.classList.add('text-[#65855d]', 'font-bold');
+                    } else {
+                        link.classList.remove('text-[#65855d]', 'font-bold');
+                    }
+                });
+                
+                // If the report page is shown, initialize the map
+                if (pageId === 'report') {
+                    initMap();
+                }
+
+                // Close mobile menu on navigation
+                mobileNav.classList.add('-translate-x-full');
+                menuIconOpen.classList.remove('hidden');
+                menuIconClose.classList.add('hidden');
+
+                // Scroll to top of page
+                window.scrollTo(0, 0);
+            }
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const pageId = link.hash.substring(1);
+                    showPage(pageId);
+                });
+            });
+
+            reportSightingBtn.addEventListener('click', () => showPage('report'));
+
+            // --- Mobile Menu ---
+            mobileMenuButton.addEventListener('click', () => {
+                mobileNav.classList.toggle('-translate-x-full');
+                menuIconOpen.classList.toggle('hidden');
+                menuIconClose.classList.toggle('hidden');
+            });
+
+            // --- Map Initialization ---
+            function initMap() {
+                const mapContainer = document.getElementById('map-container');
+                // Prevent re-initialization
+                if (mapContainer && mapContainer._leaflet_id) {
+                    return;
+                }
+                
+                map = L.map('map-container').setView([21.43, -157.9], 10);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+
+                // Add existing markers
+                mockSightings.forEach(sighting => {
+                    L.marker([sighting.lat, sighting.lng]).addTo(map)
+                        .bindPopup(`<b>Reported Sighting</b><br>${sighting.description}`);
+                });
+
+                // Handle map clicks
+                map.on('click', (e) => {
+                    const { lat, lng } = e.latlng;
+                    L.marker([lat, lng]).addTo(map)
+                        .bindPopup(`New Report Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}`).openPopup();
+                    locationInput.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+                });
+            }
+
+            // --- Form Submission ---
+            reportForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(reportForm);
+                console.log('Form Submitted:', {
+                    location: formData.get('location'),
+                    description: formData.get('description'),
+                    image: formData.get('image')
+                });
+                
+                showModal('Thank you for your report! It has been submitted.');
+                reportForm.reset();
+            });
+            
+            // --- Modal Logic ---
+            function showModal(message) {
+                modalMessage.textContent = message;
+                modal.classList.remove('hidden');
+            }
+
+            function hideModal() {
+                modal.classList.add('hidden');
+            }
+
+            modalCloseBtn.addEventListener('click', hideModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    hideModal();
+                }
+            });
+
+            // --- Initial Load ---
+            // Show the page corresponding to the URL hash, or default to home
+            const initialPage = window.location.hash ? window.location.hash.substring(1) : 'home';
+            showPage(initialPage);
+        });
+    </script>
+</body>
+</html>
