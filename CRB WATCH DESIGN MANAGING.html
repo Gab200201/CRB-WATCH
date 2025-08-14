@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hawaii CRB Command & Control Center</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9f6f1; /* Main background */
+        }
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .active {
+            animation: fadeIn 0.3s ease-out;
+        }
+        /* Card Style */
+        .card {
+            background-color: white;
+            border-radius: 1rem; /* 16px */
+            padding: 1.5rem; /* 24px */
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .nav-item.active svg, .nav-item.active span {
+            color: #65855d;
+            font-weight: 600;
+        }
+        /* Reset button styles for navigation */
+        .nav-button {
+            background: none;
+            border: none;
+            padding: 0;
+            font: inherit;
+            cursor: pointer;
+            outline: inherit;
+        }
+        /* Loading Spinner & Screen */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #65855d;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #loading-screen {
+            transition: opacity 0.5s ease-out;
+        }
+    </style>
+</head>
+<body class="text-[#414143]">
+    
+    <div id="loading-screen" class="fixed inset-0 bg-[#f9f6f1] flex flex-col justify-center items-center z-[2000]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#65855d] mb-4"><path d="M12 12v6"/><path d="M12 18h.01"/><path d="M15 6v1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2V6Z"/><path d="M9 6v1a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-1a2 2 0 0 1-2-2V6Z"/></svg>
+        <div class="loader" style="width: 48px; height: 48px; border-width: 5px;"></div>
+        <p class="text-lg text-gray-600 mt-4 font-semibold">Loading Command Center</p>
+    </div>
+
+    <div class="min-h-screen pb-24 md:pb-0"> <header class="bg-[#f9f6f1] shadow-md sticky top-0 z-50">
+            <div class="container mx-auto p-4 flex justify-between items-center">
+                <div class="text-xl md:text-2xl font-bold text-[#65855d] flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 flex-shrink-0"><path d="M12 12v6"/><path d="M12 18h.01"/><path d="M15 6v1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2V6Z"/><path d="M9 6v1a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-1a2 2 0 0 1-2-2V6Z"/></svg>
+                    <span>CRB Command Center</span>
+                </div>
+
+                <div class="hidden md:flex items-center space-x-6">
+                    <nav class="flex items-center space-x-6">
+                        <button data-page="home" class="nav-button desktop-nav-link font-medium text-gray-600 hover:text-[#65855d] transition-colors">Home</button>
+                        <button data-page="report" class="nav-button desktop-nav-link font-medium text-gray-600 hover:text-[#65855d] transition-colors">Report</button>
+                        <button data-page="pest-info" class="nav-button desktop-nav-link font-medium text-gray-600 hover:text-[#65855d] transition-colors">Pest Info</button>
+                        <button data-page="learn" class="nav-button desktop-nav-link font-medium text-gray-600 hover:text-[#65855d] transition-colors">The Plan</button>
+                        <button data-page="more" class="nav-button desktop-nav-link font-medium text-gray-600 hover:text-[#65855d] transition-colors">More</button>
+                    </nav>
+                    <div id="auth-links-desktop" class="border-l pl-6 ml-6 border-gray-300">
+                        </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto p-4">
+            
+            <div id="home" class="page space-y-8">
+                <section class="text-center">
+                    <h1 class="text-3xl md:text-4xl font-extrabold text-[#414143] mb-2">Help Protect Our Palms</h1>
+                    <p class="text-md md:text-lg text-gray-600 max-w-2xl mx-auto">Join the community effort to track and manage the Coconut Rhinoceros Beetle.</p>
+                </section>
+                
+                <section class="card text-center">
+                    <h2 class="text-xl font-bold text-[#414143] mb-2">See a Beetle?</h2>
+                    <p class="text-gray-600 mb-4">Your report helps us track the spread and protect our ecosystem. Every sighting matters.</p>
+                    <button id="home-report-btn" class="w-full max-w-xs mx-auto py-3 px-4 rounded-md text-white bg-[#65855d] font-bold transition-transform hover:scale-105">Report a Sighting</button>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-[#414143] mb-4 text-center">Know Your Enemy</h2>
+                    <div class="grid grid-cols-3 gap-2 md:gap-4">
+                        <div class="space-y-2">
+                            <img src="https://images.unsplash.com/photo-1593754593458-bfb628a5b63e?q=80&w=800&auto=format&fit=crop" alt="Top-down view of a black Rhinoceros Beetle" class="rounded-lg shadow-md aspect-square object-cover w-full">
+                            <p class="text-center font-semibold text-xs md:text-sm text-gray-700">Adult Beetle</p>
+                        </div>
+                        <div class="space-y-2">
+                            <img src="https://images.unsplash.com/photo-1625653459149-3a3224395870?q=80&w=800&auto=format&fit=crop" alt="Browning and damaged palm fronds from a pest" class="rounded-lg shadow-md aspect-square object-cover w-full">
+                            <p class="text-center font-semibold text-xs md:text-sm text-gray-700">Tree Damage</p>
+                        </div>
+                        <div class="space-y-2">
+                            <img src="https://images.unsplash.com/photo-1628734344274-23a73370e501?q=80&w=800&auto=format&fit=crop" alt="A large white beetle grub in rich dark soil" class="rounded-lg shadow-md aspect-square object-cover w-full">
+                            <p class="text-center font-semibold text-xs md:text-sm text-gray-700">Grub (Larva)</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-[#414143] mb-4">Project Impact</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="card text-center transition-transform hover:scale-105">
+                            <h3 class="font-bold text-2xl md:text-3xl text-[#414143]">80%</h3>
+                            <p class="text-xs text-gray-500">Infestation Reduction Goal</p>
+                        </div>
+                        <div class="card text-center transition-transform hover:scale-105">
+                            <h3 class="font-bold text-2xl md:text-3xl text-[#414143]">25</h3>
+                            <p class="text-xs text-gray-500">Countries with Field Teams</p>
+                        </div>
+                        <div class="card text-center transition-transform hover:scale-105">
+                            <h3 class="font-bold text-2xl md:text-3xl text-[#414143]">100M+</h3>
+                            <p class="text-xs text-gray-500">Trees to be Saved</p>
+                        </div>
+                        <div class="card text-center transition-transform hover:scale-105">
+                            <h3 class="font-bold text-2xl md:text-3xl text-[#414143]">30M+</h3>
+                            <p class="text-xs text-gray-500">Jobs Created</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <section>
+                    <h2 class="text-2xl font-bold text-[#414143] mb-4">Recent Sightings</h2>
+                    <div id="sightings-feed" class="space-y-3">
+                        </div>
+                </section>
+            </div>
+
+            <div id="report" class="page space-y-6">
+                 <section>
+                    <h1 class="text-3xl font-extrabold text-center text-[#414143] mb-4">Report a Sighting</h1>
+                    <div class="card">
+                        <h3 class="font-bold text-lg text-[#65855d] mb-3">Checklist: Found a Beetle?</h3>
+                        <div class="space-y-3 text-gray-700">
+                            <label class="flex items-center"><input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-[#65855d] focus:ring-[#65855d] mr-3"><span><strong>Capture It:</strong> Use a container, don't crush it.</span></label>
+                            <label class="flex items-center"><input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-[#65855d] focus:ring-[#65855d] mr-3"><span><strong>Freeze It:</strong> Place the container in a freezer.</span></label>
+                            <label class="flex items-center"><input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-[#65855d] focus:ring-[#65855d] mr-3"><span><strong>Note Location:</strong> Get the address or GPS point.</span></label>
+                            <label class="flex items-center"><input type="checkbox" class="h-5 w-5 rounded border-gray-300 text-[#65855d] focus:ring-[#65855d] mr-3"><span><strong>Report It:</strong> Use the form below.</span></label>
+                        </div>
+                    </div>
+                 </section>
+
+                <section>
+                    <form id="report-form" class="card space-y-6">
+                        <div>
+                             <label for="location" class="block text-sm font-medium text-gray-700 mb-1">Sighting Location</label>
+                             <p class="text-xs text-gray-500 mb-2">Click the button to use your current location or tap on the map to place a pin.</p>
+                             <button type="button" id="get-location-btn" class="w-full flex justify-center items-center gap-2 py-2 px-4 border rounded-md shadow-sm text-sm font-medium text-white bg-[#65855d] hover:bg-[#526a4b] mb-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                                Use My Current Location
+                            </button>
+                            <div id="map-container" class="bg-gray-200 rounded-lg w-full h-64 shadow-inner z-10"></div>
+                            <input type="text" id="location-input" name="location" placeholder="Coordinates will appear here..." class="mt-2 block w-full rounded-md border-gray-300 shadow-sm p-3 focus:border-[#65855d] focus:ring-[#65855d]" required />
+                        </div>
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <textarea id="description-input" name="description" rows="4" placeholder="Describe what you saw, any damage, etc." class="block w-full rounded-md border-gray-300 shadow-sm p-3 focus:border-[#65855d] focus:ring-[#65855d]" required></textarea>
+                        </div>
+                        <div>
+                             <label for="image" class="block text-sm font-medium text-gray-700 mb-1">Upload Image (optional)</label>
+                             <input type="file" id="image-input" name="image" accept="image/*" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#e6f0e4] file:text-[#65855d] hover:file:bg-gray-200" />
+                        </div>
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-bold text-white bg-[#65855d] hover:bg-[#526a4b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#65855d] transition duration-300">Submit Report</button>
+                    </form>
+                </section>
+            </div>
+
+            <div id="pest-info" class="page space-y-6">
+                <h1 class="text-3xl font-extrabold text-center text-[#414143]">Infestation Guide</h1>
+                <p class="text-center text-gray-600 -mt-4">Learn the key signs of a Coconut Rhinoceros Beetle infestation.</p>
+                
+                <div class="card">
+                    <img src="https://images.unsplash.com/photo-1593754593458-bfb628a5b63e?q=80&w=1964&auto=format&fit=crop" alt="A top-down view of an adult Coconut Rhinoceros Beetle." class="rounded-lg mb-4 w-full h-48 object-cover">
+                    <h3 class="text-xl font-bold text-[#414143] mb-2">1. The Adult Beetle</h3>
+                    <ul class="list-disc list-inside space-y-1 text-sm text-gray-600">
+                        <li>About 1.5 - 2 inches long.</li>
+                        <li>Solid black and tank-like.</li>
+                        <li>Prominent horn on its head (males have a larger horn).</li>
+                        <li>Not to be confused with the smaller, mottled Oriental Flower Beetle.</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <img src="https://images.unsplash.com/photo-1628734344274-23a73370e501?q=80&w=1964&auto=format&fit=crop" alt="A large, C-shaped beetle grub in rich soil." class="rounded-lg mb-4 w-full h-48 object-cover">
+                    <h3 class="text-xl font-bold text-[#414143] mb-2">2. The Grubs (Larvae)</h3>
+                     <ul class="list-disc list-inside space-y-1 text-sm text-gray-600">
+                        <li>Large, white, C-shaped grubs.</li>
+                        <li>Can grow up to 3 inches long.</li>
+                        <li>Found in mulch, compost, rotting logs, and green waste piles.</li>
+                        <li>They crawl on their sides, unlike other grubs that crawl on their backs.</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <img src="https://images.unsplash.com/photo-1625653459149-3a3224395870?q=80&w=1974&auto=format&fit=crop" alt="A close-up of a damaged palm frond with yellowing leaves." class="rounded-lg mb-4 w-full h-48 object-cover">
+                    <h3 class="text-xl font-bold text-[#414143] mb-2">3. Signs of Tree Damage</h3>
+                    <ul class="list-disc list-inside space-y-1 text-sm text-gray-600">
+                        <li>Distinct **V-shaped cuts** in palm fronds.</li>
+                        <li>Boreholes into the crown (top center) of the palm tree.</li>
+                        <li>Can cause the death of the tree by destroying its growing point.</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div id="learn" class="page space-y-8">
+                 <h1 class="text-3xl font-extrabold text-center text-[#414143]">The Battle Plan</h1>
+
+                <section>
+                    <h2 class="text-2xl font-bold text-[#414143] mb-4">Plants Under Threat</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="card">
+                            <img src="https://images.unsplash.com/photo-1541353229851-1c5c63519159?q=80&w=1974&auto=format&fit=crop" alt="A row of tall coconut palm trees against a blue sky." class="rounded-lg mb-4 w-full h-40 object-cover">
+                            <h3 class="font-bold">Coconut Palms</h3>
+                            <p class="text-sm text-gray-600">Adults bore into the crown, creating V-shaped cuts in fronds and killing the tree's growing point.</p>
+                        </div>
+                         <div class="card">
+                             <img src="https://images.unsplash.com/photo-1616632620241-c01335b78f44?q=80&w=1974&auto=format&fit=crop" alt="A close-up of harvested sugarcane stalks." class="rounded-lg mb-4 w-full h-40 object-cover">
+                            <h3 class="font-bold">Sugarcane</h3>
+                            <p class="text-sm text-gray-600">Beetles bore into stalks, weakening them and allowing diseases like red rot to enter.</p>
+                        </div>
+                        <div class="card">
+                             <img src="https://images.unsplash.com/photo-1619716172922-a93a51a1b425?q=80&w=2070&auto=format&fit=crop" alt="A close-up of a green breadfruit with its textured skin." class="rounded-lg mb-4 w-full h-40 object-cover">
+                            <h3 class="font-bold">Breadfruit ('Ulu)</h3>
+                            <p class="text-sm text-gray-600">Larvae thrive in rotting breadfruit and adults may bore into developing fruit, reducing the yield.</p>
+                        </div>
+                         <div class="card">
+                             <img src="https://images.unsplash.com/photo-1594264741011-33c1f1d14697?q=80&w=1974&auto=format&fit=crop" alt="A large bunch of green bananas growing on a banana plant." class="rounded-lg mb-4 w-full h-40 object-cover">
+                            <h3 class="font-bold">Bananas</h3>
+                            <p class="text-sm text-gray-600">Attacks on the main stalk weaken the plant, causing it to topple over, especially when bearing fruit.</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <section class="card">
+                    <h2 class="text-2xl font-bold text-[#414143] mb-4 text-center">Ask for Eco-Friendly Advice</h2>
+                    <div class="max-w-xl mx-auto">
+                        <textarea id="advice-prompt" rows="3" placeholder="e.g., 'I found grubs in my compost pile...'" class="w-full rounded-md border-gray-300 shadow-sm p-3 focus:border-[#65855d] focus:ring-[#65855d]"></textarea>
+                        <button id="get-advice-btn" class="mt-2 w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-md font-medium text-white bg-[#65855d] hover:bg-[#526a4b]">
+                            Get Advice <span id="advice-loader" class="hidden loader"></span>
+                        </button>
+                    </div>
+                    <div id="advice-output" class="mt-4 text-left text-gray-700 bg-gray-100 p-4 rounded-lg"></div>
+                </section>
+            </div>
+
+            <div id="more" class="page space-y-4">
+                <h1 class="text-3xl font-extrabold text-center text-[#414143]">More Information</h1>
+                
+                <div class="card space-y-4">
+                    <h2 class="text-xl font-bold">Our Mission & Vision</h2>
+                    <div>
+                        <h3 class="font-semibold text-[#65855d]">Mission</h3>
+                        <p class="text-gray-600 text-sm">To stop the spread of the CRB using non-toxic methods, mobilize communities, and build supporting infrastructure.</p>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-[#65855d]">Vision</h3>
+                        <p class="text-gray-600 text-sm">A future where accessible, non-toxic solutions protect our communities and united action today safeguards tomorrow.</p>
+                    </div>
+                </div>
+
+                <div class="card space-y-4">
+                     <h2 class="text-xl font-bold">Research & Reports</h2>
+                     <a href="https://www.researchgate.net/publication/318792137_A_new_haplotype_of_the_coconut_rhinoceros_beetle_Oryctes_rhinoceros_has_escaped_biological_control_by_Oryctes_rhinoceros_nudivirus_and_is_invading_Pacific_Islands" target="_blank" rel="noopener noreferrer" class="block text-[#65855d] hover:underline">CRB Haplotype Study (Pacific Islands) &rarr;</a>
+                     <a href="https://cnas-re.uog.edu/crb-guam/" target="_blank" rel="noopener noreferrer" class="block text-[#65855d] hover:underline">CRB Response (University of Guam) &rarr;</a>
+                     <a href="https://www.ctahr.hawaii.edu/crb/" target="_blank" rel="noopener noreferrer" class="block text-[#65855d] hover:underline">Official Hawaii Report (UH) &rarr;</a>
+                </div>
+
+                 <div class="card space-y-3">
+                     <h2 class="text-xl font-bold">Contact Us</h2>
+                     <div class="text-sm">
+                         <p class="font-semibold">Invasive Pest Species Center (IPSC)</p>
+                         <p class="text-gray-600">41-745 Mooiki St., Waimanalo, HI 96795</p>
+                         <p class="text-gray-600">(808) 778-3479</p>
+                     </div>
+                     <p class="text-xs text-gray-400">Plan prepared by Kevin Andrews</p>
+                </div>
+
+                <div id="auth-section-mobile" class="card">
+                     </div>
+            </div>
+
+            <div id="auth-gate" class="page">
+                 <div class="flex flex-col justify-center items-center text-center p-4" style="min-height: 70vh;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#65855d]"><path d="M12 12v6"/><path d="M12 18h.01"/><path d="M15 6v1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2V6Z"/><path d="M9 6v1a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-1a2 2 0 0 1-2-2V6Z"/></svg>
+                    <h1 class="text-2xl md:text-3xl font-extrabold text-[#414143] mt-4">Hawaii CRB Command & Control Center</h1>
+                    <p class="text-gray-600 mt-2 max-w-sm mx-auto">Log in or create an account to report sightings and join the community effort.</p>
+                    <div class="mt-8 w-full max-w-xs space-y-4">
+                        <button data-page="login" class="nav-button nav-link block w-full py-3 px-4 rounded-md text-white bg-[#65855d] font-bold">Log In</button>
+                        <button data-page="register" class="nav-button nav-link block w-full py-3 px-4 rounded-md text-[#65855d] bg-white border border-[#65855d] font-bold">Register</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="login" class="page">
+                <section class="flex justify-center items-center py-10">
+                    <div class="w-full max-w-md card text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#65855d] mx-auto mb-4"><path d="M12 12v6"/><path d="M12 18h.01"/><path d="M15 6v1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2V6Z"/><path d="M9 6v1a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-1a2 2 0 0 1-2-2V6Z"/></svg>
+                        <h2 class="text-3xl font-extrabold text-[#414143] mb-6">Log In</h2>
+                        <form id="login-form" class="space-y-4">
+                            <input id="login-email" name="email" type="email" autocomplete="email" required class="block w-full rounded-md border-gray-300 p-3 shadow-sm focus:ring-[#65855d]" placeholder="Email address">
+                            <input id="login-password" name="password" type="password" autocomplete="current-password" required class="block w-full rounded-md border-gray-300 p-3 shadow-sm focus:ring-[#65855d]" placeholder="Password">
+                            <button type="submit" class="w-full flex justify-center py-3 px-4 border-transparent rounded-md shadow-sm font-bold text-white bg-[#65855d] hover:bg-[#526a4b]">Log In</button>
+                        </form>
+                        <p class="mt-6 text-center text-sm text-gray-600">
+                            Don't have an account?
+                            <button data-page="register" class="nav-button nav-link font-medium text-[#65855d] hover:underline">Register now</button>
+                        </p>
+                    </div>
+                </section>
+            </div>
+
+            <div id="register" class="page">
+                <section class="flex justify-center items-center py-10">
+                    <div class="w-full max-w-md card text-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#65855d] mx-auto mb-4"><path d="M12 12v6"/><path d="M12 18h.01"/><path d="M15 6v1a2 2 0 0 0 2 2h1a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h1a2 2 0 0 0 2-2V6Z"/><path d="M9 6v1a2 2 0 0 1-2 2H6a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-1a2 2 0 0 1-2-2V6Z"/></svg>
+                        <h2 class="text-3xl font-extrabold text-[#414143] mb-6">Create Account</h2>
+                        <form id="register-form" class="space-y-4">
+                             <input id="register-email" name="email" type="email" autocomplete="email" required class="block w-full rounded-md border-gray-300 p-3 shadow-sm focus:ring-[#65855d]" placeholder="Email address">
+                            <input id="register-password" name="password" type="password" autocomplete="new-password" required class="block w-full rounded-md border-gray-300 p-3 shadow-sm focus:ring-[#65855d]" placeholder="Password">
+                            <button type="submit" class="w-full flex justify-center py-3 px-4 border-transparent rounded-md shadow-sm font-bold text-white bg-[#65855d] hover:bg-[#526a4b]">Register</button>
+                        </form>
+                        <p class="mt-6 text-center text-sm text-gray-600">
+                            Already have an account?
+                            <button data-page="login" class="nav-button nav-link font-medium text-[#65855d] hover:underline">Log in here</button>
+                        </p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    
+        <footer class="bottom-nav md:hidden">
+            <div class="flex justify-around max-w-xl mx-auto">
+                <button data-page="home" class="nav-button nav-item flex-1 flex flex-col items-center justify-center p-2 text-gray-500 hover:text-[#65855d] transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    <span class="text-xs">Home</span>
+                </button>
+                <button data-page="report" class="nav-button nav-item flex-1 flex flex-col items-center justify-center p-2 text-gray-500 hover:text-[#65855d] transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                    <span class="text-xs">Report</span>
+                </button>
+                <button data-page="pest-info" class="nav-button nav-item flex-1 flex flex-col items-center justify-center p-2 text-gray-500 hover:text-[#65855d] transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a3.5 3.5 0 0 0 5 0l4-4a3.5 3.5 0 0 0-5-5l-.5.5"/><path d="M14 10a3.5 3.5 0 0 0-5 0l-4 4a3.5 3.5 0 0 0 5 5l.5-.5"/></svg>
+                    <span class="text-xs">Pest Info</span>
+                </button>
+                <button data-page="learn" class="nav-button nav-item flex-1 flex flex-col items-center justify-center p-2 text-gray-500 hover:text-[#65855d] transition-colors">
+                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                    <span class="text-xs">The Plan</span>
+                </button>
+                 <button data-page="more" class="nav-button nav-item flex-1 flex flex-col items-center justify-center p-2 text-gray-500 hover:text-[#65855d] transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                    <span class="text-xs">More</span>
+                </button>
+            </div>
+        </footer>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM Element References ---
+            const pages = document.querySelectorAll('.page');
+            const navItems = document.querySelectorAll('.nav-item');
+            const desktopNavLinks = document.querySelectorAll('.desktop-nav-link');
+            const homeReportBtn = document.getElementById('home-report-btn');
+            const loadingScreen = document.getElementById('loading-screen');
+            const getLocationBtn = document.getElementById('get-location-btn');
+            
+            const desktopAuthLinks = document.getElementById('auth-links-desktop');
+            const mobileAuthSection = document.getElementById('auth-section-mobile');
+
+            const loginForm = document.getElementById('login-form');
+            const registerForm = document.getElementById('register-form');
+            const reportForm = document.getElementById('report-form');
+            
+            const advicePrompt = document.getElementById('advice-prompt');
+            const getAdviceBtn = document.getElementById('get-advice-btn');
+            const adviceLoader = document.getElementById('advice-loader');
+            const adviceOutput = document.getElementById('advice-output');
+
+            const sightingsFeed = document.getElementById('sightings-feed');
+            const locationInput = document.getElementById('location-input');
+
+            let map = null;
+            let auth = null;
+            let db = null;
+            let userMarker = null;
+
+            // --- Firebase Initialization ---
+            try {
+                const firebaseConfig = {
+                    apiKey: "AIzaSyAEQhRruEuGQUIdWcLdyfBpPYB4PZsWUOU",
+                    authDomain: "crb-watch-app-44c58.firebaseapp.com",
+                    projectId: "crb-watch-app-44c58",
+                    storageBucket: "crb-watch-app-44c58.appspot.com",
+                    messagingSenderId: "148423726121",
+                    appId: "1:148423726121:web:8e593a43580c5d14d8f838"
+                };
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                alert("Could not connect to services. Please try again later.");
+            }
+
+            // --- Page Navigation ---
+            function showPage(pageId) {
+                pages.forEach(page => page.classList.remove('active'));
+                const targetPage = document.getElementById(pageId);
+                if (targetPage) targetPage.classList.add('active');
+                
+                // Update active state for mobile nav
+                navItems.forEach(item => {
+                    item.classList.remove('active');
+                    if (item.dataset.page === pageId) item.classList.add('active');
+                });
+                
+                // Update active state for desktop nav
+                desktopNavLinks.forEach(link => {
+                    link.classList.remove('text-[#65855d]', 'font-bold');
+                    if (link.dataset.page === pageId) {
+                        link.classList.add('text-[#65855d]', 'font-bold');
+                    }
+                });
+                
+                if (pageId === 'report') {
+                    if (!map) {
+                        initMap();
+                    } else {
+                        // If map already exists, ensure it resizes correctly
+                        setTimeout(() => map.invalidateSize(), 10);
+                    }
+                }
+                window.scrollTo(0, 0);
+            }
+            
+            document.body.addEventListener('click', function(e) {
+                const navButton = e.target.closest('.nav-button');
+                if (navButton && navButton.dataset.page) {
+                    showPage(navButton.dataset.page);
+                }
+            });
+
+            if (homeReportBtn) homeReportBtn.addEventListener('click', () => showPage('report'));
+
+            // --- Auth State & UI Updates ---
+            function updateUIForUser(user) {
+                const loggedIn = user && !user.isAnonymous;
+                const authGateButton = `<button data-page="auth-gate" class="nav-button text-sm font-semibold text-white bg-[#65855d] px-3 py-2 rounded-md hover:bg-[#526a4b]">Log In / Register</button>`;
+                
+                desktopAuthLinks.innerHTML = loggedIn ? `<button id="desktop-logout-btn" class="nav-button text-sm font-semibold text-gray-600 hover:text-[#65855d]">Log Out</button>` : authGateButton;
+                mobileAuthSection.innerHTML = loggedIn ? `
+                    <p class="text-sm text-center text-gray-500 mb-2">Logged in as ${user.email}</p>
+                    <button id="mobile-logout-btn" class="w-full text-center py-2 px-4 rounded-md text-red-600 bg-red-100 font-semibold">Log Out</button>
+                ` : authGateButton;
+                
+                document.getElementById('desktop-logout-btn')?.addEventListener('click', () => signOut(auth));
+                document.getElementById('mobile-logout-btn')?.addEventListener('click', () => signOut(auth));
+            }
+            
+            // --- Auth & Report Form Handling ---
+            if (auth) {
+                onAuthStateChanged(auth, user => {
+                    updateUIForUser(user);
+                    if (!user) signInAnonymously(auth).catch(err => console.error("Anonymous sign-in failed", err));
+                });
+
+                loginForm?.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    try {
+                        await signInWithEmailAndPassword(auth, loginForm.email.value, loginForm.password.value);
+                        alert('Login successful!');
+                        showPage('home');
+                    } catch (error) { alert(`Login failed: ${error.message}`); }
+                });
+
+                registerForm?.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    try {
+                        await createUserWithEmailAndPassword(auth, registerForm.email.value, registerForm.password.value);
+                        alert('Registration successful! You are now logged in.');
+                        showPage('home');
+                    } catch (error) { alert(`Registration failed: ${error.message}`); }
+                });
+
+                reportForm?.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const currentUser = auth.currentUser;
+                    if (!currentUser || currentUser.isAnonymous) {
+                        alert("Please log in or register to submit a report.");
+                        showPage('auth-gate');
+                        return;
+                    }
+
+                    try {
+                        await addDoc(collection(db, "sightings"), {
+                            userId: currentUser.uid,
+                            email: currentUser.email,
+                            location: locationInput.value,
+                            description: reportForm.description.value,
+                            timestamp: new Date()
+                        });
+                        alert("Thank you! Your sighting has been reported.");
+                        reportForm.reset();
+                        showPage('home');
+                    } catch (error) {
+                        console.error("Error adding document: ", error);
+                        alert("Sorry, there was an error submitting your report.");
+                    }
+                });
+            }
+            
+            // --- Live Map Logic ---
+            function placeMarkerAndPan(lat, lng, zoom = 16) {
+                if (userMarker) map.removeLayer(userMarker);
+                userMarker = L.marker([lat, lng], {draggable: true}).addTo(map);
+                map.setView([lat, lng], zoom);
+                locationInput.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+
+                userMarker.on('dragend', function(event) {
+                    const position = event.target.getLatLng();
+                    locationInput.value = `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`;
+                });
+            }
+
+            function initMap() {
+                if (document.getElementById('map-container')._leaflet_id) return;
+                const defaultView = [21.43, -157.9]; // Default to Hawaii
+                map = L.map('map-container').setView(defaultView, 8);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+                map.on('click', (e) => placeMarkerAndPan(e.latlng.lat, e.latlng.lng, map.getZoom()));
+                
+                getLocationBtn.addEventListener('click', () => {
+                    if ('geolocation' in navigator) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                const { latitude, longitude } = position.coords;
+                                placeMarkerAndPan(latitude, longitude, 17);
+                            },
+                            (error) => {
+                                alert("Could not get your location. Please tap on the map to set it manually.");
+                                console.error("Geolocation error:", error);
+                            }
+                        );
+                    } else {
+                        alert("Geolocation is not supported by your browser.");
+                    }
+                });
+            }
+            
+            // --- Mock AI Call ---
+            function getEcoAdvice(prompt, loader, output) {
+                loader.classList.remove('hidden');
+                output.textContent = 'Thinking...';
+                const geminiApiKey = "YOUR_GEMINI_API_KEY"; // Replace with your actual Gemini API Key
+                
+                if (!geminiApiKey || geminiApiKey === "YOUR_GEMINI_API_KEY") {
+                    setTimeout(() => {
+                        output.innerHTML = "<strong>Note:</strong> AI feature not configured. This is a sample response.<br><br>To control pests in your compost, ensure it reaches high temperatures (140-160°F) by turning it regularly. You can also screen the compost with a half-inch wire mesh to prevent adult beetles from laying eggs.";
+                        loader.classList.add('hidden');
+                    }, 1500);
+                }
+                // Actual API call logic would go here
+            }
+            getAdviceBtn?.addEventListener('click', () => getEcoAdvice(advicePrompt.value, adviceLoader, adviceOutput));
+
+            // --- Initial Load Logic ---
+            function initialLoad() {
+                const mockSightings = [
+                    { location: 'near Diamond Head', date: '2 hours ago' },
+                    { location: 'in a Pearl City compost pile', date: 'Yesterday' },
+                    { location: 'damaging a palm in Waimanalo', date: '3 days ago' },
+                ];
+                sightingsFeed.innerHTML = mockSightings.map(s => `
+                    <div class="card flex items-center space-x-4">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-[#65855d] flex-shrink-0"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <div>
+                            <p class="font-semibold text-gray-800">Sighting reported ${s.location}</p>
+                            <p class="text-sm text-gray-500">${s.date}</p>
+                        </div>
+                    </div>
+                `).join('');
+
+                const initialPage = window.location.hash ? window.location.hash.substring(1) : 'home';
+                showPage(initialPage);
+                
+                setTimeout(() => {
+                    loadingScreen.style.opacity = '0';
+                    setTimeout(() => loadingScreen.style.display = 'none', 500);
+                }, 1000);
+            }
+            
+            initialLoad();
+        });
+    </script>
+</body>
+</html>
